@@ -145,10 +145,10 @@ struct jit_avx512_core_bf16_convolution_bwd_data_t : public primitive_t {
                     VERBOSE_BAD_ALGORITHM);
             VDISPATCH_CONV(!has_zero_dim_memory(), VERBOSE_EMPTY_TENSOR, "");
             VDISPATCH_CONV(
-                    attr()->has_default_values(), VERBOSE_UNSUPPORTED_ATTR);
+                    attr()->has_default_values(primitive_attr_t::skip_mask_t::post_ops), VERBOSE_UNSUPPORTED_ATTR);
 
             status_t status = jit_avx512_core_bf16_bwd_data_kernel::init_conf(
-                    jcp_, *desc(), diff_src_md_, weights_md_, diff_dst_md_,
+                    jcp_, *desc(), diff_src_md_, weights_md_, diff_dst_md_, *attr(),
                     dnnl_get_max_threads());
             return status;
         }
@@ -164,7 +164,8 @@ struct jit_avx512_core_bf16_convolution_bwd_data_t : public primitive_t {
 
     status_t init(engine_t *engine) override {
         CHECK(safe_ptr_assign(
-                kernel_, new jit_avx512_core_bf16_bwd_data_kernel(pd()->jcp_)));
+                kernel_, new jit_avx512_core_bf16_bwd_data_kernel(
+                    pd()->jcp_, *pd()->attr())));
         return kernel_->create_kernel();
     }
 
