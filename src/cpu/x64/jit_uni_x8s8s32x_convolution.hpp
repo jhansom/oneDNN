@@ -67,7 +67,9 @@ struct jit_uni_x8s8s32x_convolution_fwd_t : public primitive_t {
             VDISPATCH_CONV(
                     attr()->has_default_values(smask_t::scales_runtime
                                     | smask_t::zero_points_runtime
-                                    | smask_t::post_ops | smask_t::sum_dt,
+                                    | smask_t::post_ops | smask_t::sum_dt
+                                    | smask_t::input_zero_points
+                                    | smask_t::output_compensations,
                             dst_md(0)->data_type),
                     VERBOSE_UNSUPPORTED_ATTR);
             VDISPATCH_CONV(attr()->post_ops_.check_sum_consistency(
@@ -75,9 +77,6 @@ struct jit_uni_x8s8s32x_convolution_fwd_t : public primitive_t {
                     VERBOSE_UNSUPPORTED_POSTOP);
             VDISPATCH_CONV(attr_scales_ok(), VERBOSE_UNSUPPORTED_SCALES_CFG);
             VDISPATCH_CONV(zero_points_ok(), VERBOSE_UNSUPPORTED_ZP_CFG);
-            VDISPATCH_CONV(
-                    !this->attr()->has_asymmetric_quantization(),
-                    VERBOSE_UNSUPPORTED_ATTR);
 
             CHECK(jit_uni_x8s8s32x_fwd_kernel<isa>::init_conf(jcp_, *desc(),
                     src_md_, weights_md_, dst_md_, bias_md_, attr_,
