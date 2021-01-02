@@ -172,4 +172,7 @@ private:
 #define CTX_IN_MEM(type, arg, ...) CTX_IN_MEm##__VA_ARGS__(type, arg)
 #define CTX_OUT_MEM(type, arg, ...) CTX_OUT_MEm##__VA_ARGS__(type, arg)
 
+#define CTX_IN_BATCH(arg)                                               \
+    ctx.input(arg) ? ctx.input(arg)->md()->ndims != 0 ? ctx.input(arg)->md()->dims[0] : 0 : 0
+
 #endif
