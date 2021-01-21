@@ -92,6 +92,10 @@ struct prec_traits<data_type::boolean> {
     typedef bool type;
 };
 
+template <> struct prec_traits<data_type::bin> {
+    typedef uint8_t type;
+};
+
 template <>
 struct data_traits<float8_e5m2_t> {
     static constexpr data_type_t data_type = data_type::f8_e5m2;
