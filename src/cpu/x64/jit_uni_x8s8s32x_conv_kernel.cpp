@@ -61,8 +61,8 @@ _jit_uni_x8s8s32x_fwd_kernel<isa, Vmm>::_jit_uni_x8s8s32x_fwd_kernel(
     if (jcp.with_eltwise || jcp.with_binary || jcp.with_sum || jcp.with_depthwise || jcp.with_quantization) {
         using namespace binary_injector;
         static constexpr bool preserve_gpr = true;
-        static constexpr bool preserve_vmm = false;
-        static constexpr size_t helper_vmm_idx = 15;
+        static constexpr bool preserve_vmm = true;
+        static constexpr size_t helper_vmm_idx = 2;
         const size_t block_tail
                 = (jcp.is_depthwise ? jcp.ch_block : jcp.oc_block)
                 % isa_simd_width_;
