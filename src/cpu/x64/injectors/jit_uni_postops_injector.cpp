@@ -35,9 +35,11 @@ jit_uni_postops_injector_t<isa, Vmm>::jit_uni_postops_injector_t(
     const auto &esp = eltwise_static_params;
     const auto &qsp = quantization_static_params;
 
-    for (const auto &post_op : post_ops.entry_) {
+    for (int i = 0; i < post_ops_.len(); i++) {
+        const auto &post_op = post_ops_.entry_[i];
+
         if (post_op.is_eltwise()) {
-            alg_to_eltwise_injector_.emplace(post_op.eltwise.alg,
+            alg_to_eltwise_injector_.emplace(i,
                                              jit_uni_eltwise_injector_f32<isa, Vmm>(host_, post_op.eltwise,
                                                                                esp.save_state, esp.p_table_, esp.k_mask_, esp.is_fwd,
                                                                                esp.use_dst));
@@ -73,8 +75,9 @@ jit_uni_postops_injector_t<isa, Vmm>::jit_uni_postops_injector_t(
     bool is_like_binary = false;
     bool is_eltwise = false;
 
-    for (int i = 0; i < post_ops.len(); i++) {
-        const auto &post_op = post_ops.entry_[i];
+    for (int i = 0; i < post_ops_.len(); i++) {
+        const auto &post_op = post_ops_.entry_[i];
+
         if (post_op.is_eltwise()) {
             is_eltwise = true;
             alg_to_eltwise_injector_.emplace(i,
