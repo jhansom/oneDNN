@@ -63,14 +63,14 @@ size_t memory_desc_map_size(const memory_desc_t *md, int index = 0) {
 
     memory_desc_t md_no_offset0 = *md;
     md_no_offset0.offset0 = 0;
-    return memory_desc_wrapper(md_no_offset0).size(index)
+    return memory_desc_wrapper(md_no_offset0).size()
             + md->offset0 * mdw.data_type_size();
 }
 } // namespace
 
 dnnl_memory::dnnl_memory(dnnl::impl::engine_t *engine,
-        const dnnl::impl::memory_desc_t *md, const std::vector<unsigned> &flags,
-        const std::vector<void *> &handles)
+    const dnnl::impl::memory_desc_t *md, const std::vector<unsigned> &flags,
+    const std::vector<void *> &handles)
     : engine_(engine), md_(*md) {
 
     const size_t nhandles = handles.size();
@@ -152,8 +152,7 @@ status_t dnnl_memory_create(memory_t **memory, const memory_desc_t *md,
             : memory_flags_t::use_runtime_ptr;
     void *handle_ptr = (handle == DNNL_MEMORY_ALLOCATE) ? nullptr : handle;
     auto _memory = new memory_t(engine, md, flags, handle_ptr);
-    if (_memory == nullptr)
-        return out_of_memory;
+    if (_memory == nullptr) return out_of_memory;
     if (_memory->memory_storage() == nullptr) {
         delete _memory;
         return out_of_memory;
@@ -287,6 +286,16 @@ status_t dnnl_memory_map_data(const memory_t *memory, void **mapped_ptr) {
 
 status_t dnnl_memory_unmap_data(const memory_t *memory, void *mapped_ptr) {
     return dnnl_memory_unmap_data_v2(memory, mapped_ptr, 0);
+}
+
+status_t dnnl_memory_unmap_data_sparse(
+        const_dnnl_memory_t memory, int index, void *mapped_ptr) {
+    bool args_ok = !any_null(memory);
+    if (!args_ok) return invalid_arguments;
+
+    return memory->memory_storage()->unmap_data(mapped_ptr, nullptr);
+
+    return unimplemented;
 }
 
 status_t dnnl_memory_destroy(memory_t *memory) {
