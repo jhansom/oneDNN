@@ -911,6 +911,19 @@ dnnl_status_t DNNL_API dnnl_memory_desc_create_with_packed_encoding(
         dnnl_memory_desc_t *memory_desc, int ndims, const dnnl_dims_t dims,
         dnnl_data_type_t data_type, dnnl_dim_t nnz);
 #endif
+/// Initializes a sparse descriptor.
+///
+/// @param memory_desc Output memory descriptor.
+/// @param encoding Encoding.
+/// @param ndims Number of dimensions.
+/// @param dims Array of dimensions.
+/// @param data_type Elements data type.
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_memory_desc_create_sparse(
+        dnnl_memory_desc_t *memory_desc,
+        dnnl_sparse_encoding_t encoding, int ndims,
+        const dnnl_dims_t dims, dnnl_data_type_t data_type);
 
 /// Creates a memory descriptor for a region inside an area
 /// described by an existing memory descriptor.
@@ -1165,7 +1178,6 @@ size_t DNNL_API dnnl_memory_desc_get_size(const_dnnl_memory_desc_t memory_desc);
 size_t DNNL_API dnnl_memory_desc_get_size_v2(
         const_dnnl_memory_desc_t memory_desc, int index);
 #endif
-
 /// Returns the size of data type.
 ///
 /// @param data_type Data type.
@@ -1218,7 +1230,6 @@ dnnl_status_t DNNL_API dnnl_memory_create_v2(dnnl_memory_t *memory,
         const_dnnl_memory_desc_t memory_desc, dnnl_engine_t engine,
         int nhandles, void **handles);
 #endif
-
 /// Returns the memory descriptor for a memory object.
 ///
 /// @param memory Memory object.
@@ -1330,7 +1341,6 @@ dnnl_status_t DNNL_API dnnl_memory_unmap_data(
 dnnl_status_t DNNL_API dnnl_memory_unmap_data_v2(
         const_dnnl_memory_t memory, void *mapped_ptr, int index);
 #endif
-
 /// Returns memory object's data handle.
 ///
 /// @param memory Memory object.
