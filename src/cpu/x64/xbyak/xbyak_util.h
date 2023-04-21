@@ -303,6 +303,7 @@ private:
 			}
 			return;
 		}
+#ifdef XBYAK_INTEL_CPU_SPECIFIC
 		// intel
 		const uint32_t NO_CACHE = 0;
 		const uint32_t DATA_CACHE = 1;
@@ -347,6 +348,7 @@ private:
 				dataCacheLevels_++;
 			}
 		}
+#endif // XBYAK_INTEL_CPU_SPECIFIC
 	}
 
 public:
