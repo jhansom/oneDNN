@@ -51,9 +51,11 @@ void init_kernel_datatype(
         brgemm_desc_t *brg, impl::data_type_t dt_a, impl::data_type_t dt_b) {
     assert(dt_a != data_type::undef && dt_b != data_type::undef);
     brg->is_int8 = utils::one_of(dt_a, data_type::u8, data_type::s8)
-            && utils::one_of(dt_b, data_type::u8, data_type::s8);
-    brg->is_bf16 = (dt_a == data_type::bf16) && (dt_b == data_type::bf16);
-    brg->is_f32 = (dt_a == data_type::f32) && (dt_b == data_type::f32);
+            && utils::one_of(dt_b, data_type::u8, data_type::s8, data_type::u4);
+    brg->is_bf16 = one_of(dt_a, data_type::bf16) &&
+                   one_of(dt_b, data_type::bf16, data_type::u8, data_type::s8, data_type::nf4, data_type::s4, data_type::u4);
+    brg->is_f32 = one_of(dt_a, data_type::f32) &&
+                  one_of(dt_b, data_type::f32, data_type::u8, data_type::s8, data_type::nf4, data_type::s4, data_type::u4);
     brg->is_f16 = utils::one_of(data_type::f16, dt_a, dt_b);
     brg->is_fp8 = one_of(dt_a, data_type::f8_e5m2, data_type::f8_e4m3)
             && one_of(dt_b, data_type::f8_e5m2, data_type::f8_e4m3);
@@ -140,6 +142,11 @@ void set_isa_impl(brgemm_desc_t *brg) {
                     is_isa_ok(avx512_core_amx_fp16), avx512_core_amx_fp16,
                     is_isa_ok(avx512_core_fp16), avx512_core_fp16,
                     is_isa_ok(avx2_vnni_2), avx2_vnni_2);
+        } else if (data_type::f32 == brg->dt_a && data_type::f16 == brg->dt_b) {
+            // vcvtph2ps available on AVX2(F16C) / AVX512F
+            brg->isa_impl = utils::map(true, isa_undef,
+                    is_isa_ok(avx512_core), avx512_core,
+                    is_isa_ok(avx2), avx2);
         } else {
             brg->isa_impl = utils::map(true, isa_undef,
                     is_isa_ok(avx512_core_fp16), avx512_core_fp16);
@@ -213,7 +220,16 @@ int calculate_max_bcast_block(brgemm_desc_t *brg, const int adj_ld_block2) {
     // non-VNNI INT8 dot product required 2 temp vectors
     if (brg->is_int8 && !brg->has_int8_vnni) max_bcast_block -= 2;
 
+    if (one_of(brg->dt_b, data_type::nf4) && brg->isa_impl == avx2) max_bcast_block -= 5;
+    if (one_of(brg->dt_b, data_type::nf4) && brg->isa_impl != avx2) max_bcast_block -= 1;
+    if (brg->with_wei_decomp_zero_points && brg->wei_decomp_zero_points_stride == 0) max_bcast_block -= 1;
+    if (brg->with_src_dyn_quant) max_bcast_block -= 2;
+    if (brg->with_src_dyn_quant && brg->with_wei_decomp_zero_points && brg->wei_decomp_zero_points_stride != 0) max_bcast_block -= adj_ld_block2;
+
     max_bcast_block /= adj_ld_block2;
+    if (brg->with_src_dyn_quant) {
+        max_bcast_block /= 2;
+    }
 
     return max_bcast_block;
 }
@@ -240,7 +256,8 @@ status_t brgemm_blocking(brgemm_desc_t *brg) {
         // reduce 'ld_block2' to allow a larger 'bd_block'
         const int max_vpad = nstl::max(
                 brg->brgattr.max_top_vpad, brg->brgattr.max_bottom_vpad);
-        if (is_superset(brg->isa_impl, avx2) && max_bcast_block < max_vpad) {
+        if ((is_superset(brg->isa_impl, avx2) && max_bcast_block < max_vpad) ||
+            (brg->with_src_dyn_quant && max_bcast_block == 0)) {
             adj_ld_block2 = calculate_ldb_params(brg, 2);
             max_bcast_block = calculate_max_bcast_block(brg, adj_ld_block2);
         }
@@ -269,11 +286,21 @@ status_t brgemm_blocking(brgemm_desc_t *brg) {
         brg->bdb = brg->bcast_dim / brg->bd_block;
         brg->bdb_tail = brg->bcast_dim % brg->bd_block;
 
-        const int rd_unroll = 4;
         const data_type_t rd_block_dt = get_mac_emu_data_type(
                 brg->dt_a, brg->isa_impl, brg->isa_impl != avx2_vnni_2);
         if (rd_block_dt == dnnl_data_type_undef) return status::unimplemented;
-        const int vnni_granularity = data_type_vnni_granularity(rd_block_dt);
+        const int vnni_granularity
+                = (brg->is_f16 && brg->isa_impl == avx512_core_fp16)
+                ? 1
+                : data_type_vnni_granularity(brg->dt_a);
+        int rd_unroll = one_of(brg->dt_b, data_type::nf4, data_type::u4, data_type::s4) ? 32 : 4;
+        if (brg->with_grouped_wei_decomp) {
+            auto min_group_size = nstl::min(brg->wei_decomp_scales_group_size, brg->wei_decomp_zero_points_group_size);
+            min_group_size = nstl::min(min_group_size, brg->src_scales_group_size);
+            rd_unroll = nstl::min(rd_unroll, min_group_size / vnni_granularity);
+            rd_unroll = nstl::min(rd_unroll, min_group_size / vnni_granularity);
+        }
+
         brg->rd_block = rd_unroll * vnni_granularity;
         brg->rdb = brg->reduce_dim / brg->rd_block;
         brg->rdb_tail = brg->reduce_dim % brg->rd_block;
@@ -840,8 +867,9 @@ void init_brgemm_conf(brgemm_desc_t *brg, cpu_isa_t isa,
     brg->has_int8_vnni = isa_has_int8_vnni(brg->isa_impl);
 
     set_brg_vmm(brg); // TODO: Investigate if it is really needed here.
-    brg->req_s8s8_compensation = brg->is_int8 && brg->dt_a == data_type::s8
-            && !isa_has_s8s8(brg->isa_impl);
+    brg->req_s8s8_compensation = brg->is_int8 && !brg->is_int8_tmm
+            && !isa_has_s8s8(brg->isa_impl) && brg->dt_a == data_type::s8
+            && !brg->with_src_dyn_quant;
 
     brg->LDA = (brg->is_row_major()) ? static_cast<int>(LDA)
                                      : static_cast<int>(LDB);
@@ -865,6 +893,12 @@ void init_brgemm_conf(brgemm_desc_t *brg, cpu_isa_t isa,
     brg->bdb2 = 0;
     brg->bdb2_tail = 0;
 
+    const bool is_vcvtph2ps_kernel = (brg->dt_b == data_type::f16 && brg->dt_a == data_type::f32);
+    const bool is_b_in_vnni_format = !(brg->dt_b == data_type::f16 && brg->isa_impl == avx512_core_fp16) &&
+                                     !(one_of(brg->dt_a, data_type::f32, data_type::bf16) && one_of(brg->dt_b, data_type::u8, data_type::s8)) &&
+                                     !is_vcvtph2ps_kernel;
+    brg->ld_step
+            = is_b_in_vnni_format ? data_type_vnni_granularity(brg->dt_b) : 1;
     const data_type_t ld_step_compute_dt
             = get_mac_emu_data_type(brg->dt_b, brg->isa_impl,
                     brg->isa_impl != avx2_vnni_2 && !brg->is_fp8_via_convert());
@@ -873,6 +907,20 @@ void init_brgemm_conf(brgemm_desc_t *brg, cpu_isa_t isa,
     const data_type_t rd_step_compute_dt = get_mac_emu_data_type(
             brg->dt_b, brg->isa_impl, !brg->is_fp8_via_convert());
     brg->rd_step = data_type_vnni_granularity(rd_step_compute_dt);
+    const bool has_no_vnni_compute_instruction
+            = (brg->is_f16
+                      && one_of(brg->isa_impl, avx2_vnni_2, avx512_core_fp16))
+            || (brg->is_bf16 && brg->isa_impl == avx2_vnni_2)
+            || (one_of(brg->dt_a, data_type::f32, data_type::bf16) &&
+                one_of(brg->dt_b, data_type::u8, data_type::s8, data_type::nf4, data_type::s4, data_type::u4, data_type::f16));
+    brg->rd_step = has_no_vnni_compute_instruction
+            ? 1
+            : data_type_vnni_granularity(brg->dt_b);
+
+    if (brg->with_src_dyn_quant && one_of(brg->dt_b, data_type::u4)) {
+        brg->ld_step = 8;
+        brg->rd_step = 4;
+    }
 }
 
 void init_brdgmm_conf(brgemm_desc_t *brg, cpu_isa_t isa,
