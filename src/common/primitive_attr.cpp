@@ -20,6 +20,7 @@
 #include "primitive_attr.hpp"
 #include "type_helpers.hpp"
 #include "utils.hpp"
+#include <iostream>
 
 using namespace dnnl::impl;
 using namespace dnnl::impl::status;
@@ -119,6 +120,23 @@ status_t zero_points_t::set(int arg, int mask) {
     return status::success;
 }
 
+status_t zero_points_t::set(int arg, const dims_t dims, int ndims, data_type_t data_type) {
+    const bool supported_arg
+            = utils::one_of(arg, DNNL_ARG_WEIGHTS);
+    if (!supported_arg) return status::unimplemented;
+
+    switch (arg) {
+        case DNNL_ARG_WEIGHTS:
+            is_set_wei = true;
+            ndims_wei = ndims;
+            mask_wei = 1;
+            utils::array_copy(dims_wei, dims, ndims);
+            data_type_wei = data_type;
+            break;
+    }
+    return status::success;
+}
+
 } // namespace impl
 } // namespace dnnl
 
@@ -142,6 +160,8 @@ bool primitive_attr_t::has_default_values(dnnl_primitive_attr::skip_mask_t mask,
     CHECK_MASK(smask_t::oscale_runtime, output_scales_);
     CHECK_MASK(smask_t::scales, scales_);
     CHECK_MASK(smask_t::zero_points, zero_points_);
+    CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::zero_points),
+            zero_points_.has_default_data_type()));
     CHECK_MASK(smask_t::input_zero_points, input_zero_points_);
     CHECK_MASK(smask_t::weights_zero_points, weights_zero_points_);
     CHECK_MASK(smask_t::output_compensations, output_compensations_);
@@ -150,6 +170,7 @@ bool primitive_attr_t::has_default_values(dnnl_primitive_attr::skip_mask_t mask,
     CHECK_MASK(smask_t::rnn_weights_qparams, rnn_weights_qparams_);
     CHECK_MASK(smask_t::rnn_weights_projection_qparams,
             rnn_weights_projection_qparams_);
+    CHECK_MASK(smask_t::src_dyn_quant_params, src_dyn_quant_params_);
     CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::sum_dt),
             post_ops_.sum_with_default_dt(dst_dt)));
     bool gpu_attr_ok = IMPLICATION((bool)(~mask & smask_t::gpu_attr),
@@ -175,6 +196,7 @@ bool primitive_attr_t::defined(dnnl_primitive_attr::skip_mask_t mask) const {
     CHECK_MASK(smask_t::rnn_weights_qparams, rnn_weights_qparams_);
     CHECK_MASK(smask_t::rnn_weights_projection_qparams,
             rnn_weights_projection_qparams_);
+    CHECK_MASK(smask_t::src_dyn_quant_params, src_dyn_quant_params_);
     return ok;
 #undef CHECK_MASK
 #undef CHECK_ARG
@@ -548,6 +570,13 @@ status_t dnnl_primitive_attr_set_scales_mask(
     if (!ok) return invalid_arguments;
     return attr->scales_.set(arg, mask);
 }
+status_t dnnl_primitive_attr_set_scales_dims(
+        primitive_attr_t *attr, int arg, const dims_t dims, int ndims) {
+    bool ok = attr && arg >= 0 && ndims > 0
+            && attr->output_scales_.has_default_values();
+    if (!ok) return invalid_arguments;
+    return attr->scales_.set(arg, dims, ndims);
+}
 
 status_t dnnl_primitive_attr_set_zero_points_mask(
         primitive_attr_t *attr, int arg, int mask) {
@@ -555,6 +584,13 @@ status_t dnnl_primitive_attr_set_zero_points_mask(
     if (!ok) return invalid_arguments;
 
     return attr->zero_points_.set(arg, mask);
+}
+status_t dnnl_primitive_attr_set_zero_points_dims(
+        primitive_attr_t *attr, int arg, const dims_t dims, int ndims, dnnl_data_type_t data_type) {
+    bool ok = attr && ndims > 0;
+    if (!ok) return invalid_arguments;
+
+    return attr->zero_points_.set(arg, dims, ndims, data_type);
 }
 
 status_t dnnl_primitive_attr_set_output_compensations(primitive_attr_t *attr,
@@ -854,6 +890,21 @@ status_t DNNL_API dnnl_primitive_attr_set_rnn_tparams(
     if (attr == nullptr) return invalid_arguments;
 
     return attr->rnn_tparams_.set(mode, ngates, scales, cscale);
+}
+
+status_t dnnl_primitive_attr_set_src_dyn_quant_params(
+        primitive_attr_t *attr, const uint64_t group_size) {
+    if (attr == nullptr) return invalid_arguments;
+
+    return attr->src_dyn_quant_params_.set(group_size);
+}
+
+status_t dnnl_primitive_attr_get_src_dyn_quant_params(
+        primitive_attr_t *attr, uint64_t* group_size) {
+    if (attr == nullptr) return invalid_arguments;
+
+    if (group_size) *group_size = attr->src_dyn_quant_params_.get();
+    return success;
 }
 
 template struct dnnl::impl::shifts_t<uint8_t>;
