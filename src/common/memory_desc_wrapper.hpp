@@ -429,6 +429,12 @@ struct memory_desc_wrapper : public c_compatible {
         return memory_desc_matches_tag(*md_, tag);
     }
 
+    /** returns true if the memory desc corresponds to the given format tag and
+     * strides.
+     * @sa memory_desc_matches_tag */
+    bool matches_tag(format_tag_t tag, const dims_t strides) const {
+        return memory_desc_matches_tag(*md_, tag, strides);
+    }
     /** returns matching tag (or undef if match is not found)
      * XXX: This is a workaround that eventually should go away! */
     template <typename... Tags>
