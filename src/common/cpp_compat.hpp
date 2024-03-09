@@ -30,13 +30,13 @@ namespace cpp_compat {
 // contains a compatibility layer for such C++ features.
 
 // Older than C++17.
-#if defined(__cplusplus) && __cplusplus < 201703L
+#if defined(__cplusplus) && __cplusplus < 201703L || defined(_MSVC_LANG) && _MSVC_LANG < 201703L
 inline int uncaught_exceptions() {
     return (int)std::uncaught_exception();
 }
 
 template <class F, class... ArgTypes>
-using invoke_result = std::result_of<F(ArgTypes...)>;
+using invoke_result = typename std::result_of<F(ArgTypes...)>;
 #else
 
 inline int uncaught_exceptions() {
