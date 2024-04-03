@@ -32,6 +32,12 @@ namespace {
 cpu_isa_t init_max_cpu_isa() {
     cpu_isa_t max_cpu_isa_val = isa_all;
     static std::string isa_val = getenv_string_user("MAX_CPU_ISA");
+    //W.A. default enable AVX2_VNNI_2 for openvino usage
+    using namespace Xbyak::util;
+    if (isa_val.empty()
+            && !(cpu().has(Cpu::tAVX512F) && cpu().has(Cpu::tAVX512BW)
+                    && cpu().has(Cpu::tAVX512VL) && cpu().has(Cpu::tAVX512DQ)))
+        isa_val = "avx2_vnni_2";
     if (!isa_val.empty()) {
 
 #define IF_HANDLE_CASE(cpu_isa) \
