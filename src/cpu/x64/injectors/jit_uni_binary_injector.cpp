@@ -2653,13 +2653,20 @@ typename std::enable_if<!(std::is_same<T, Xbyak::Zmm>::value
                           || std::is_same<T, Xbyak::Address>::value)>::type
 jit_uni_binary_injector_t<isa, Vmm>::execute_prelu_binary(const Vmm &dst,
                                                         const Vmm &lhs, const T &rhs) const {
+    using dnnl::impl::utils::one_of;
     // in sse4 vmm_aux0 as mask it's index must be 0
     Vmm vmm_aux0 = Vmm(rhs_arg_static_params_.rhs_prelu_helper_vmm_idx);
 
-    if (dst == vmm_aux0) {
-        vmm_aux0 = Vmm(14);
-        if (isa == sse41)
-            assert(!"conflict mask register");
+    if (one_of(vmm_aux0, dst, lhs, rhs)) {
+        //let's find a vacant XMM register
+        int occupied_idices[] = {dst.getIdx(), lhs.getIdx(), rhs.isMEM() ? -1 : rhs.getIdx()};
+
+        int fixup_reg_indx = 14;
+        while (std::any_of(std::begin(occupied_idices), std::end(occupied_idices),
+            [&](const int x) {return x == fixup_reg_indx;}) && --fixup_reg_indx > 0) {}
+        if (fixup_reg_indx < 0) assert(!"couldn't find a vacant XMM reg");
+
+        vmm_aux0 = Vmm(fixup_reg_indx);
     }
 
     push_vmm(host_, vmm_aux0);
