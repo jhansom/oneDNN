@@ -47,7 +47,7 @@ struct jit_pp_kernel_t : pp_kernel_t, public jit_generator {
             if (post_op.is_eltwise()) {
                 jit_eltwise_injectors_.push_back(new jit_uni_eltwise_injector_f32<isa>(
                         this, post_op.eltwise, true, eltwise_reserved_1_, eltwise_reserved_2_));
-            } else if (post_op.is_binary()) {
+            } else if (post_op.is_like_binary()) {
                 with_binary = true;
                 only_eltwise = false;
             } else if (post_op.is_depthwise()) {
@@ -115,7 +115,7 @@ struct jit_pp_kernel_t : pp_kernel_t, public jit_generator {
         auto dst_md = pd->dst_md();
         for (int i = 0; i < post_ops.len(); i++) {
             const auto &post_op = post_ops.entry_[i];
-            if (post_op.is_binary()) {
+            if (post_op.is_like_binary()) {
                 if (!binary_injector::is_supported(isa,
                         binary_injector::get_src1_desc(post_op, *dst_md),
                         *dst_md,
@@ -227,7 +227,7 @@ void jit_pp_kernel_t<isa>::generate() {
             if (post_op.is_eltwise()) {
                 jit_eltwise_injectors_[eltwise_inj_idx]->compute_vector(vreg_dst_.getIdx());
                 eltwise_inj_idx++;
-            } else if (post_op.is_binary()) {
+            } else if (post_op.is_like_binary()) {
                 binary_injector::rhs_arg_dynamic_params_t rhs_arg_params;
                 rhs_arg_params.vmm_idx_to_out_reg.emplace(vreg_dst_.getIdx(), reg_dst);
                 rhs_arg_params.vmm_idx_to_out_elem_off_val.emplace(

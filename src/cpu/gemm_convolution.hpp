@@ -75,13 +75,13 @@ struct gemm_convolution_fwd_t : public primitive_t {
                 for (int i = 0; i < po.len(); i++) {
                     const auto &post_op = po.entry_[i];
                     if (!utils::one_of(post_op.kind, sum, binary, eltwise,
-                                depthwise, quantization))
+                                depthwise, quantization, prelu))
                         return false;
 
 #if DNNL_X64
                     using namespace cpu::x64;
                     cpu_isa_t isa = isa_undef;
-                    if (po.entry_[i].kind == binary) {
+                    if (po.entry_[i].is_like_binary()) {
                         auto dst_md = this->dst_md();
                         if (mayiuse(avx512_core))
                             isa = avx512_core;

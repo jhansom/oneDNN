@@ -40,7 +40,6 @@ float compute_binary_scalar(alg_kind_t alg, float x, float y) {
         case binary_lt: return x < y;
         case binary_eq: return x == y;
         case binary_ne: return x != y;
-        case binary_prelu: return x >= 0 ? x : x * y;
         default: assert(!"not supported operation!"); return NAN;
     }
 }
@@ -140,7 +139,7 @@ ref_binary_scalar_t::ref_binary_scalar_t(alg_kind_t alg) : alg_(alg) {
             alg_kind::binary_min, alg_kind::binary_mul, alg_kind::binary_div,
             alg_kind::binary_sub, alg_kind::binary_ge, alg_kind::binary_gt,
             alg_kind::binary_le, alg_kind::binary_lt, alg_kind::binary_eq,
-            alg_kind::binary_ne, alg_kind::binary_prelu));
+            alg_kind::binary_ne));
 }
 
 ref_binary_scalar_t::ref_binary_scalar_t(
