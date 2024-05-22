@@ -193,7 +193,7 @@ struct jit_uni_reorder_kernel_f32_t : public kernel_t, public jit_generator {
                 && utils::one_of(p.beta, 0.f, 1.f) /* anything else? */
                 && simple_impl_desc_init(p, nullptr) && mayiuse(sse41)
                 && IMPLICATION(utils::one_of(bf16, p.itype, p.otype),
-                        mayiuse(avx512_core) || mayiuse(avx2_vnni_2))
+                        mayiuse(avx512_core) || mayiuse(avx2))
                 && IMPLICATION(utils::one_of(f16, p.itype, p.otype),
                         mayiuse(avx512_core_fp16) || mayiuse(avx2))
                 && IMPLICATION(!is_direct_copy(p), prb_has_small_strides(p));
