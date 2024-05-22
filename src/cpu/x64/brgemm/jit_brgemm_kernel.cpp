@@ -2146,12 +2146,16 @@ void jit_brgemm_kernel_t<isa, Wmm>::gemm_microkernel(int bd_block2,
                     } else {
                         vcvtph2ps(vmm_load, addr);
                     }
-                } else if (brg.dt_b == data_type::bf16
-                        && brg.isa_impl == avx2_vnni_2) {
-                    if (rd % 2 == 0)
-                        vcvtneebf162ps(vmm_load, addr);
-                    else
-                        vcvtneobf162ps(vmm_load, addr);
+                } else if (brg.dt_b == data_type::bf16) {
+                    if (brg.isa_impl == avx2_vnni_2) {
+                        if (rd % 2 == 0)
+                            vcvtneebf162ps(vmm_load, addr);
+                        else
+                            vcvtneobf162ps(vmm_load, addr);
+                    } else {
+                        vpmovzxwd(vmm_load, addr);
+                        uni_vpslld(vmm_load, vmm_load, 16);
+                    }
                 } else if (is_ld_tail) {
                     if (is_superset(brg.isa_impl, avx512_core)) {
                         uni_vmovups(vmm_load, addr);
@@ -2429,12 +2433,16 @@ void jit_brgemm_kernel_t<isa, Wmm>::gemm_microkernel(int bd_block2,
                     } else {
                         vcvtph2ps(vmm_load, addr);
                     }
-                } else if (brg.dt_b == data_type::bf16
-                        && brg.isa_impl == avx2_vnni_2) {
-                    if (rd % 2 == 0)
-                        vcvtneebf162ps(vmm_load, addr);
-                    else
-                        vcvtneobf162ps(vmm_load, addr);
+                } else if (brg.dt_b == data_type::bf16) {
+                    if (brg.isa_impl == avx2_vnni_2) {
+                        if (rd % 2 == 0)
+                            vcvtneebf162ps(vmm_load, addr);
+                        else
+                            vcvtneobf162ps(vmm_load, addr);
+                    } else {
+                        vpmovzxwd(vmm_load, addr);
+                        uni_vpslld(vmm_load, vmm_load, 16);
+                    }
                 } else if (is_ld_tail) {
                     if (is_superset(brg.isa_impl, avx512_core)) {
                         uni_vmovups(vmm_load, addr);
