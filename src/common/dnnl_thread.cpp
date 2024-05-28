@@ -10,6 +10,11 @@
 #include "counting_barrier.hpp"
 #endif
 
+
+int dnnl_get_multiplier() {
+    return 512;
+}
+
 namespace dnnl {
 namespace impl {
 
@@ -43,22 +48,22 @@ void parallel(int nthr, const std::function<void(int, int)> &f) {
 #endif
     }
 #elif DNNL_CPU_THREADING_RUNTIME == DNNL_RUNTIME_TBB
-    tbb::parallel_for(
-            0, nthr,
-            [&](int ithr) {
-#if defined(DNNL_ENABLE_ITT_TASKS)
-                bool mark_task = itt::primitive_task_get_current_kind()
-                        == primitive_kind::undefined;
-                if (mark_task && itt_enable)
-                    itt::primitive_task_start(task_primitive_kind);
-#endif
-                f(ithr, nthr);
-#if defined(DNNL_ENABLE_ITT_TASKS)
-                if (mark_task && itt_enable) itt::primitive_task_end();
-#endif
-            },
-            tbb::static_partitioner());
-#elif DNNL_CPU_THREADING_RUNTIME == DNNL_RUNTIME_TBB_AUTO
+//     tbb::parallel_for(
+//             0, nthr,
+//             [&](int ithr) {
+// #if defined(DNNL_ENABLE_ITT_TASKS)
+//                 bool mark_task = itt::primitive_task_get_current_kind()
+//                         == primitive_kind::undefined;
+//                 if (mark_task && itt_enable)
+//                     itt::primitive_task_start(task_primitive_kind);
+// #endif
+//                 f(ithr, nthr);
+// #if defined(DNNL_ENABLE_ITT_TASKS)
+//                 if (mark_task && itt_enable) itt::primitive_task_end();
+// #endif
+//             },
+//             tbb::static_partitioner());
+//#elif DNNL_CPU_THREADING_RUNTIME == DNNL_RUNTIME_TBB_AUTO
     tbb::parallel_for(
             0, nthr, [&](int ithr) { f(ithr, nthr); });
 #elif DNNL_CPU_THREADING_RUNTIME == DNNL_RUNTIME_THREADPOOL

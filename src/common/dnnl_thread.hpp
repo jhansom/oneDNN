@@ -79,8 +79,9 @@ inline void dnnl_thr_barrier() {
 #include "tbb/parallel_for.h"
 #include "tbb/task_arena.h"
 #define DNNL_THR_SYNC 0
+int dnnl_get_multiplier();
 inline int dnnl_get_max_threads() {
-    return tbb::this_task_arena::max_concurrency();
+    return tbb::this_task_arena::max_concurrency() * dnnl_get_multiplier();
 }
 inline int dnnl_in_parallel() {
     return 0;
@@ -164,7 +165,7 @@ inline int dnnl_get_current_num_threads() {
 #if DNNL_CPU_THREADING_RUNTIME == DNNL_RUNTIME_OMP
     return omp_get_max_threads();
 #elif DNNL_CPU_THREADING_RUNTIME == DNNL_RUNTIME_TBB
-    return tbb::this_task_arena::max_concurrency();
+    return tbb::this_task_arena::max_concurrency() * dnnl_get_multiplier();
 #elif DNNL_CPU_THREADING_RUNTIME == DNNL_RUNTIME_THREADPOOL
     using namespace dnnl::impl::threadpool_utils;
     dnnl::threadpool_interop::threadpool_iface *tp = get_active_threadpool();
