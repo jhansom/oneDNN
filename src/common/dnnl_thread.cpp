@@ -12,7 +12,7 @@
 
 
 int dnnl_get_multiplier() {
-    return 512;
+    return 32;
 }
 
 namespace dnnl {
