@@ -28,6 +28,20 @@ const impl_list_map_t &regular_s4_impl_list_map() {
             REG_SR(f32, any, s4, any, fmt_order::any, spec::reference)
             nullptr,
         }},
+        {{s4, data_type::undef, 0}, {
+            REG_SR(s4, any, s4, OI8i8o2i, fmt_order_keep)
+            REG_SR(s4, any, s4, OI8i16o2i, fmt_order_keep)
+            REG_SR(s4, any, s4, OI8i24o2i, fmt_order_keep)
+            REG_SR(s4, any, s4, OI8i32o2i, fmt_order_keep)
+            REG_SR(s4, any, s4, OI8i64o2i, fmt_order_keep)
+            REG_SR(s4, any, s4, OI16i16o2i, fmt_order_keep)
+            REG_SR(s4, any, s4, OI16i32o2i, fmt_order_keep)
+            REG_SR(s4, any, s4, OI16i48o2i, fmt_order_keep)
+            REG_SR(s4, any, s4, OI16i64o2i, fmt_order_keep)
+            REG_SR(s4, any, u8, any, fmt_order_keep, spec::reference)
+            REG_SR(s4, any, f32, any, fmt_order_keep, spec::reference)
+            nullptr,
+        }},
         {{s4, f32, 0}, {
             REG_SR(s4, any, f32, any, fmt_order::any, spec::reference)
             nullptr,
