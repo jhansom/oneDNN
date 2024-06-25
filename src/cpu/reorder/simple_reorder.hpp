@@ -1696,7 +1696,8 @@ struct simple_reorder_impl<SIMPLE_REORDER_TEMPL_CALL,
                 && IMPLICATION(tag_traits<tag_o>::block_dims == bd::_BC,
                         tag_traits<tag_o>::ndims >= 4
                                 && tag_traits<tag_o>::ndims <= 6)
-                && (type_i != dnnl_bin && type_o != dnnl_bin)>::type> {
+                && (type_i != dnnl_bin && type_o != dnnl_bin)
+                && (type_i != dnnl_nf4 && type_o != dnnl_nf4)>::type> {
     PLAIN_TO_BLOCKED_IS_APPLICABLE();
 
     GET_SCRATCHPAD_SIZE_ZERO();
@@ -1999,6 +2000,191 @@ typename utils::enable_if<tag_i == format_tag::any &&
     }
 };
 
+template <SIMPLE_REORDER_TEMPL_DECL>
+struct simple_reorder_impl<SIMPLE_REORDER_TEMPL_CALL,
+typename utils::enable_if<tag_i == format_tag::any &&
+                          tag_traits<tag_o>::block_dims == bd::_AB &&
+                          utils::one_of(type_i, dnnl_nf4, dnnl_s4, dnnl_u4) &&
+                          type_i == type_o>::type>
+{
+    static bool is_applicable(const memory_desc_wrapper &input_d,
+                              const memory_desc_wrapper &output_d, const primitive_attr_t *attr) {
+        if (!(!input_d.has_runtime_dims_or_strides() &&
+             simple_attr_check(attr, false, true) &&
+             (order_keep ? output_d.matches_tag(tag_o) && input_d.is_plain()
+                         : input_d.matches_tag(tag_o) && output_d.is_plain())))
+            return false;
+
+        if (output_d.blocking_desc().inner_nblks != 3 ||
+            !utils::one_of(output_d.blocking_desc().inner_blks[2], 2, 4) ||
+            output_d.blocking_desc().inner_idxs[2] != 1)
+            return false;
+
+        return true;
+    }
+
+    GET_SCRATCHPAD_SIZE_ZERO();
+
+    static status_t execute(const cpu_reorder_pd_t *pd, const exec_ctx_t &ctx) {
+        DECLARE_COMMON_PARAMS();
+
+        int blksize_o = 1;
+        int blksize_i = 1;
+
+        for (int i = 0; i < output_d.blocking_desc().inner_nblks; i++) {
+            if (output_d.blocking_desc().inner_idxs[i] == 0)
+                blksize_o *= output_d.blocking_desc().inner_blks[i];
+            else
+                blksize_i *= output_d.blocking_desc().inner_blks[i];
+        }
+
+        const auto &dims = input_d.dims();
+        const auto &pdims = order_keep
+            ? output_d.padded_dims()
+            : input_d.padded_dims();
+
+        const int OC = dims[0];
+        const int NB_OC = pdims[0] / blksize_o;
+        const int IC = dims[1];
+        const int NB_IC = pdims[1] / blksize_i;
+
+        int i_mult_o = blksize_o;
+        int i_mult_i = blksize_i;
+
+        auto extract_half_byte = [&](uint8_t val, bool high_half) -> uint8_t {
+            uint8_t shift = high_half ? 4 : 0;
+
+            return (uint8_t) ((val >> shift) & 0x000F);
+        };
+
+        auto insert_half_byte = [](uint8_t dst, uint8_t val, bool high_half) -> uint8_t {
+            uint8_t shift = high_half ? 0 : 4;
+            return dst | (uint8_t) (val << shift);
+        };
+
+        if (output_d.blocking_desc().inner_blks[2] == 4) {
+            parallel_nd(NB_OC, NB_IC,
+                [&](int nb_oc, int nb_ic) {
+                    const int oc_block = nstl::min(blksize_o, OC - nb_oc * blksize_o);
+                    const int ic_block = nstl::min(blksize_i, IC - nb_ic * blksize_i);
+
+                    for (int icb = 0; icb < utils::div_up(ic_block, 8); ++icb) {
+                        for (int oc = 0; oc < oc_block; ++oc) {
+                             const int ic_int_block = nstl::min(8, ic_block - icb * 8);
+                            for (int ic = 0; ic < ic_int_block; ++ic) {
+                                size_t iidx = (i_mult_o * nb_oc + oc) * input_d.blocking_desc().strides[0] +
+                                            (i_mult_i * nb_ic + icb * 8 + ic) * input_d.blocking_desc().strides[1];
+                                size_t oidx = output_d.blk_off<false>(nb_oc, nb_ic) + icb * blksize_o * 8 + oc * 8 + 2 * (ic % 4) + ic / 4;
+
+                                auto src_val = extract_half_byte(input[iidx / 2], (uint8_t)(iidx % 2));
+                                auto dst_val = oidx % 2 == 0 ? (data_t<type_o>)(0) : output[oidx / 2];
+                                dst_val = insert_half_byte(dst_val, src_val, (uint8_t)(oidx % 2));
+                                output[oidx / 2] = dst_val;
+                            }
+                        }
+                    }
+                });
+        } else {
+            parallel_nd(NB_OC, NB_IC,
+                [&](int nb_oc, int nb_ic) {
+                    const int oc_block = nstl::min(blksize_o, OC - nb_oc * blksize_o);
+                    const int ic_block = nstl::min(blksize_i, IC - nb_ic * blksize_i);
+
+                    for (int icb = 0; icb < utils::div_up(ic_block, 2); ++icb) {
+                        for (int oc = 0; oc < oc_block; ++oc) {
+                            for (int ic = 0; ic < 2; ++ic) {
+                                size_t iidx = (i_mult_o * nb_oc + oc) * input_d.blocking_desc().strides[0] +
+                                            (i_mult_i * nb_ic + icb *2 + ic) * input_d.blocking_desc().strides[1];
+                                size_t oidx = output_d.blk_off<false>(nb_oc, nb_ic) + icb * blksize_o * 2 + oc * 2 + ic;
+
+                                auto src_val = extract_half_byte(input[iidx / 2], (uint8_t)(iidx % 2));
+                                auto dst_val = ic == 1 ? output[oidx / 2] : data_t<type_o>(0);
+                                dst_val = insert_half_byte(dst_val, src_val, (uint8_t)(oidx % 2));
+                                output[oidx / 2] = dst_val;
+                            }
+                        }
+                    }
+                });
+        }
+
+        return status::success;
+    }
+};
+
+template <SIMPLE_REORDER_TEMPL_DECL>
+struct simple_reorder_impl<SIMPLE_REORDER_TEMPL_CALL,
+        typename utils::enable_if<tag_i == format_tag::any
+                        && tag_o == format_tag::any
+                        && utils::one_of(type_i, dnnl_nf4, dnnl_s4, dnnl_u4)
+                        && utils::one_of(type_o, dnnl_u8, dnnl_f32),
+                spec::reference>::type> {
+    static bool is_applicable(const memory_desc_wrapper &input_d,
+            const memory_desc_wrapper &output_d, const primitive_attr_t *attr) {
+        return !input_d.has_runtime_dims_or_strides()
+                && input_d.is_dense() && output_d.is_dense()
+                && simple_attr_check(attr, false, true);
+    }
+
+    GET_SCRATCHPAD_SIZE_ZERO();
+
+    static status_t execute(const cpu_reorder_pd_t *pd, const exec_ctx_t &ctx) {
+        DECLARE_COMMON_PARAMS();
+        using namespace utils;
+
+        input += input_d.blk_off(0);
+        output += output_d.blk_off(0);
+
+        const dim_t work_amount = input_d.nelems();
+
+        auto extract_half_byte = [&](uint8_t val, bool high_half) -> uint8_t {
+            uint8_t shift = high_half ? 4 : 0;
+
+            return (uint8_t)((val >> shift) & 0x000F);
+        };
+
+        parallel(0, [&](const int ithr, const int nthr) {
+            dim_t start {0}, end {0};
+            balance211(work_amount, nthr, ithr, start, end);
+            if (utils::one_of(type_i, dnnl_s4, dnnl_u4)) {
+                PRAGMA_OMP_SIMD()
+                for (dim_t idx = start; idx < end; idx++) {
+                    const auto i_off = input_d.off_l(idx);
+                    const auto o_off = output_d.off_l(idx);
+                    const int8_t src_val = extract_half_byte(input[i_off / 2], i_off % 2);
+                    output[o_off] = _qz_a1b0<dnnl_s8, type_o>()(src_val);
+                }
+            } else {
+                static const std::array<float, 16> lookup = {-1.0f,
+                                                -0.6961928009986877f,
+                                                -0.5250730514526367f,
+                                                -0.39491748809814453f,
+                                                -0.28444138169288635f,
+                                                -0.18477343022823334f,
+                                                -0.09105003625154495f,
+                                                0.0f,
+                                                0.07958029955625534f,
+                                                0.16093020141124725f,
+                                                0.24611230194568634f,
+                                                0.33791524171829224f,
+                                                0.44070982933044434f,
+                                                0.5626170039176941f,
+                                                0.7229568362236023f,
+                                                1.0f};
+
+                PRAGMA_OMP_SIMD()
+                for (dim_t idx = start; idx < end; idx++) {
+                    const auto i_off = input_d.off_l(idx);
+                    const auto o_off = output_d.off_l(idx);
+                    const uint8_t idx_val = extract_half_byte(input[i_off / 2], i_off % 2);
+                    output[o_off] = lookup[idx_val];
+                }
+            }
+        });
+
+        return status::success;
+    }
+};
+
 /* generic and direct-copy reorders */
 
 template <SIMPLE_REORDER_TEMPL_DECL>
@@ -2144,54 +2330,54 @@ struct simple_reorder_impl<SIMPLE_REORDER_TEMPL_CALL,
     }
 };
 
-template <SIMPLE_REORDER_TEMPL_DECL>
-struct simple_reorder_impl<SIMPLE_REORDER_TEMPL_CALL,
-        typename utils::enable_if<tag_i == format_tag::any
-                        && tag_o == format_tag::any
-                        && utils::one_of(type_i, dnnl_s4, dnnl_u4)
-                        && type_o == dnnl_f32,
-                spec::reference>::type> {
-    static bool is_applicable(const memory_desc_wrapper &input_d,
-            const memory_desc_wrapper &output_d, const primitive_attr_t *attr) {
-        return !input_d.has_runtime_dims_or_strides() && input_d.is_dense()
-                && input_d.strides()[output_d.ndims() - 1] == 1
-                && output_d.is_dense() && simple_attr_check(attr, false, true);
-    }
-
-    GET_SCRATCHPAD_SIZE_ZERO();
-
-    static status_t execute(const cpu_reorder_pd_t *pd, const exec_ctx_t &ctx) {
-        DECLARE_COMMON_PARAMS();
-        using namespace utils;
-
-        input += input_d.blk_off(0);
-        output += output_d.blk_off(0);
-
-        // To avoid clashes between threads each byte (or 2 elements)
-        // is handled by a single thread
-        const dim_t work_amount = input_d.nelems() / 2;
-
-        parallel(0, [&](const int ithr, const int nthr) {
-            dim_t start {0}, end {0};
-            balance211(work_amount, nthr, ithr, start, end);
-            PRAGMA_OMP_SIMD()
-            for_(dim_t idx = start; idx < end; idx++)
-            for (int i = 0; i < 2; ++i) {
-                const auto i_off = input_d.off_l(2 * idx + i);
-                const auto o_off = output_d.off_l(2 * idx + i);
-                const auto shift = i % 2 ? int4_extract_t::high_half
-                                         : int4_extract_t::low_half;
-                auto src_val = data_t<type_i>::extract(
-                        reinterpret_cast<const uint8_t *>(input)[i_off / 2],
-                        shift);
-                reinterpret_cast<data_t<type_o> *>(output)[o_off]
-                        = static_cast<float>(src_val);
-            }
-        });
-
-        return status::success;
-    }
-};
+//template <SIMPLE_REORDER_TEMPL_DECL>
+//struct simple_reorder_impl<SIMPLE_REORDER_TEMPL_CALL,
+//        typename utils::enable_if<tag_i == format_tag::any
+//                        && tag_o == format_tag::any
+//                        && utils::one_of(type_i, dnnl_s4, dnnl_u4)
+//                        && type_o == dnnl_f32,
+//                spec::reference>::type> {
+//    static bool is_applicable(const memory_desc_wrapper &input_d,
+//            const memory_desc_wrapper &output_d, const primitive_attr_t *attr) {
+//        return !input_d.has_runtime_dims_or_strides() && input_d.is_dense()
+//                && input_d.strides()[output_d.ndims() - 1] == 1
+//                && output_d.is_dense() && simple_attr_check(attr, false, true);
+//    }
+//
+//    GET_SCRATCHPAD_SIZE_ZERO();
+//
+//    static status_t execute(const cpu_reorder_pd_t *pd, const exec_ctx_t &ctx) {
+//        DECLARE_COMMON_PARAMS();
+//        using namespace utils;
+//
+//        input += input_d.blk_off(0);
+//        output += output_d.blk_off(0);
+//
+//        // To avoid clashes between threads each byte (or 2 elements)
+//        // is handled by a single thread
+//        const dim_t work_amount = input_d.nelems() / 2;
+//
+//        parallel(0, [&](const int ithr, const int nthr) {
+//            dim_t start {0}, end {0};
+//            balance211(work_amount, nthr, ithr, start, end);
+//            PRAGMA_OMP_SIMD()
+//            for_(dim_t idx = start; idx < end; idx++)
+//            for (int i = 0; i < 2; ++i) {
+//                const auto i_off = input_d.off_l(2 * idx + i);
+//                const auto o_off = output_d.off_l(2 * idx + i);
+//                const auto shift = i % 2 ? int4_extract_t::high_half
+//                                         : int4_extract_t::low_half;
+//                auto src_val = data_t<type_i>::extract(
+//                        reinterpret_cast<const uint8_t *>(input)[i_off / 2],
+//                        shift);
+//                reinterpret_cast<data_t<type_o> *>(output)[o_off]
+//                        = static_cast<float>(src_val);
+//            }
+//        });
+//
+//        return status::success;
+//    }
+//};
 
 template <SIMPLE_REORDER_TEMPL_DECL>
 struct simple_reorder_impl<SIMPLE_REORDER_TEMPL_CALL,
@@ -2297,9 +2483,8 @@ struct simple_reorder_impl<SIMPLE_REORDER_TEMPL_CALL,
         typename utils::enable_if<tag_i == format_tag::any
                         && tag_o == format_tag::any
                         && order_keep == fmt_order::any
-                        // u4/s4 requires a special implementation
-                        && !utils::one_of(type_i, dnnl_s4, dnnl_u4)
-                        && !utils::one_of(type_o, dnnl_s4, dnnl_u4),
+                        && !(utils::one_of(type_i, dnnl_nf4, dnnl_s4, dnnl_u4) ||
+                             utils::one_of(type_o, dnnl_nf4, dnnl_s4, dnnl_u4)),
                 spec::reference>::type> {
     static bool is_applicable(const memory_desc_wrapper &input_d,
             const memory_desc_wrapper &output_d, const primitive_attr_t *attr) {

@@ -68,6 +68,7 @@ const float *precompute_scales(const memory_tracking::grantor_t &scratchpad,
         assert(mayiuse(avx512_core));
         assert(wei_scale_mask != 0);
         if (wei_scale_groups_ndims > 0) {
+            printf("count %ld wei_scale_count %ld\n", count, wei_scale_count);
             assert(count == wei_scale_count);
             const auto wei_scale_groups_ic
                     = attr_scales.get(DNNL_ARG_WEIGHTS).group_dims_[0];
