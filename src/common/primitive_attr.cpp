@@ -133,22 +133,22 @@ status_t zero_points_t::set(int arg, int mask, int ndims, const dims_t groups,
     return status::success;
 }
 
-//status_t zero_points_t::set(int arg, const dims_t dims, int ndims, data_type_t data_type) {
-//    const bool supported_arg
-//            = utils::one_of(arg, DNNL_ARG_WEIGHTS);
-//    if (!supported_arg) return status::unimplemented;
-//
-//    switch (arg) {
-//        case DNNL_ARG_WEIGHTS:
-//            is_set_wei = true;
-//            ndims_wei = ndims;
-//            mask_wei = 1;
-//            utils::array_copy(dims_wei, dims, ndims);
-//            data_type_wei = data_type;
-//            break;
-//    }
-//    return status::success;
-//}
+status_t zero_points_t::set(int arg, const dims_t dims, int ndims, data_type_t data_type) {
+   const bool supported_arg
+           = utils::one_of(arg, DNNL_ARG_WEIGHTS);
+   if (!supported_arg) return status::unimplemented;
+
+   switch (arg) {
+       case DNNL_ARG_WEIGHTS:
+           is_set_wei = true;
+           ndims_wei = ndims;
+           mask_wei = 1;
+           utils::array_copy(dims_wei, dims, ndims);
+           data_type_wei = data_type;
+           break;
+   }
+   return status::success;
+}
 
 } // namespace impl
 } // namespace dnnl
@@ -172,16 +172,16 @@ bool primitive_attr_t::has_default_values(dnnl_primitive_attr::skip_mask_t mask,
             (bool)(~mask & (mask_name)), (mask_field).has_default_values()))
     CHECK_MASK(smask_t::oscale_runtime, output_scales_);
     CHECK_MASK(smask_t::scales, scales_);
-    // CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::scales_runtime_groups),
-    //         scales_.has_default_groups()));
-    // CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::scales_runtime_data_type),
-    //         scales_.has_default_data_type()));
-    // CHECK_MASK(smask_t::zero_points, zero_points_);
-    // CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::zero_points_runtime_groups),
-    //         zero_points_.has_default_groups()));
-    // CHECK_ARG(
-    //         IMPLICATION((bool)(~mask & smask_t::zero_points_runtime_data_type),
-    //                 zero_points_.has_default_data_type()));
+    CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::scales_runtime_groups),
+            scales_.has_default_groups()));
+    CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::scales_runtime_data_type),
+            scales_.has_default_data_type()));
+    CHECK_MASK(smask_t::zero_points, zero_points_);
+    CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::zero_points_runtime_groups),
+            zero_points_.has_default_groups()));
+    CHECK_ARG(
+            IMPLICATION((bool)(~mask & smask_t::zero_points_runtime_data_type),
+                    zero_points_.has_default_data_type()));
     CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::zero_points),
             zero_points_.has_default_data_type()));
     CHECK_MASK(smask_t::input_zero_points, input_zero_points_);
@@ -687,7 +687,7 @@ status_t dnnl_primitive_attr_set_zero_points_dims(
     bool ok = attr && ndims > 0;
     if (!ok) return invalid_arguments;
 
-    return attr->zero_points_.set(arg, 0, ndims, dims, data_type);
+    return attr->zero_points_.set(arg, dims, ndims, data_type);
 }
 
 dnnl_status_t DNNL_API dnnl_primitive_attr_set_zero_points(

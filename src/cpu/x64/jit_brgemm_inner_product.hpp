@@ -74,6 +74,12 @@ struct brgemm_inner_product_fwd_t : public primitive_t {
                 skip_mask |= skip_mask_t::scales_runtime;
                 skip_mask |= skip_mask_t::zero_points_runtime;
                 skip_mask |= skip_mask_t::src_dyn_quant_params;
+                // From oneDNN 3.5, those checks must be skipped if wei_decomp is enabled
+                // reference from src/plugins/intel_cpu/thirdparty/onednn/src/common/matmul.cpp:L62
+                skip_mask |= skip_mask_t::zero_points_runtime_data_type;
+                skip_mask |= skip_mask_t::zero_points_runtime_groups;
+                skip_mask |= skip_mask_t::scales_runtime_data_type;
+                skip_mask |= skip_mask_t::scales_runtime_groups;
             }
 
             if (!mayiuse(isa)) return status::unimplemented;
@@ -281,7 +287,8 @@ struct brgemm_inner_product_fwd_t : public primitive_t {
         }
 
         // JIT to precompute scales
-        const bool is_jit_supported = mayiuse(avx512_core) && false;
+        // JIT precompute scales is not compatible with OV's weights_decompression
+        const bool is_jit_supported = mayiuse(avx512_core) && !(pd()->jbgp_.weights_decompression);
         const auto attr = pd()->attr();
         if (is_jit_supported && pd()->OC() > 1 && req_copy_scales(attr)) {
             const auto &attr_scales = attr->scales_;

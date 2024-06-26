@@ -278,9 +278,9 @@ struct runtime_scales_t : public c_compatible {
                 && ndims_ == rhs.ndims_
                 && IMPLICATION(ndims_ > 0,
                         utils::array_cmp(group_dims_, rhs.group_dims_, ndims_))
-                && data_type_ == rhs.data_type_;
-        return mask_ == rhs.mask_ && is_set_ == rhs.is_set_ &&
-               ndims_ == rhs.ndims_ && utils::array_cmp(dims_, rhs.dims_, ndims_);
+                && data_type_ == rhs.data_type_
+                && IMPLICATION(ndims_ > 0,
+                        utils::array_cmp(dims_, rhs.dims_, ndims_));
     }
 
     bool has_default_values() const { return *this == default_runtime_scale(); }
@@ -491,7 +491,7 @@ struct zero_points_t : public c_compatible {
 
     status_t set(int arg, int mask, int ndims, const dims_t group_dims,
             data_type_t data_type);
-
+    status_t set(int arg, const dims_t dims, int ndims, data_type_t data_type);
     status_t set(int arg, int mask) {
         return set(arg, mask, 0, nullptr, data_type::s32);
     }

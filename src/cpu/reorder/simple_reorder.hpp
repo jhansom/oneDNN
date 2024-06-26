@@ -2075,8 +2075,8 @@ typename utils::enable_if<tag_i == format_tag::any &&
                                 size_t iidx = (i_mult_o * nb_oc + oc) * input_d.blocking_desc().strides[0] +
                                             (i_mult_i * nb_ic + icb * 8 + ic) * input_d.blocking_desc().strides[1];
                                 size_t oidx = output_d.blk_off<false>(nb_oc, nb_ic) + icb * blksize_o * 8 + oc * 8 + 2 * (ic % 4) + ic / 4;
-
-                                auto src_val = extract_half_byte(input[iidx / 2], (uint8_t)(iidx % 2));
+                                const uint8_t* packed_val = reinterpret_cast<const uint8_t *>(input);
+                                auto src_val = extract_half_byte(packed_val[iidx / 2], (uint8_t)(iidx % 2));
                                 auto dst_val = oidx % 2 == 0 ? (data_t<type_o>)(0) : output[oidx / 2];
                                 dst_val = insert_half_byte(dst_val, src_val, (uint8_t)(oidx % 2));
                                 output[oidx / 2] = dst_val;
@@ -2096,8 +2096,8 @@ typename utils::enable_if<tag_i == format_tag::any &&
                                 size_t iidx = (i_mult_o * nb_oc + oc) * input_d.blocking_desc().strides[0] +
                                             (i_mult_i * nb_ic + icb *2 + ic) * input_d.blocking_desc().strides[1];
                                 size_t oidx = output_d.blk_off<false>(nb_oc, nb_ic) + icb * blksize_o * 2 + oc * 2 + ic;
-
-                                auto src_val = extract_half_byte(input[iidx / 2], (uint8_t)(iidx % 2));
+                                const uint8_t* packed_val = reinterpret_cast<const uint8_t *>(input);
+                                auto src_val = extract_half_byte(packed_val[iidx / 2], (uint8_t)(iidx % 2));
                                 auto dst_val = ic == 1 ? output[oidx / 2] : data_t<type_o>(0);
                                 dst_val = insert_half_byte(dst_val, src_val, (uint8_t)(oidx % 2));
                                 output[oidx / 2] = dst_val;

@@ -290,8 +290,7 @@ struct memory_desc_wrapper : public c_compatible {
                 max_size = utils::array_product(bd.inner_blks, bd.inner_nblks);
             }
 
-            size_t data_size = max_size * data_type_size()
-                    / sub_byte_data_type_multiplier();
+            size_t data_size = max_size * data_type_size() / sub_byte_data_type_multiplier();
             if (is_additional_buffer()) {
                 // The additional buffers, typically of data type int32_t, float
                 // are stored at the end of data. Pad the data, so that the
