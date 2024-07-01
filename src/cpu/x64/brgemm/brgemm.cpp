@@ -511,7 +511,7 @@ status_t brgemm_desc_set_postops(brgemm_desc_t *brg,
         if (!zero_points.common(mem_arg)) return status::unimplemented;
 
         const bool skip_zero_point
-                = mem_arg == DNNL_ARG_WEIGHTS && brg->skip_zp_b_compensation;
+                = (mem_arg == DNNL_ARG_WEIGHTS && brg->skip_zp_b_compensation) || brg->with_src_dyn_quant;
         zp_type = zero_points.has_default_values(mem_arg) || skip_zero_point
                 ? brgemm_broadcast_t::none
                 : brgemm_broadcast_t::per_tensor;
