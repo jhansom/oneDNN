@@ -96,7 +96,6 @@ status_t brgemm_inner_product_fwd_t<isa>::execute_forward(
 
     const int wei_scale_mask
             = pd()->attr()->scales_.get(DNNL_ARG_WEIGHTS).mask_;
-    printf("get output scales|!!!!");
     const float *oscales
             = scale_utils::precompute_scales(scratchpad, src_scales, wei_scales,
                     pd()->IC(), pd()->OC(), false, wei_scale_mask == (1 << 0),
@@ -323,7 +322,13 @@ status_t brgemm_inner_product_fwd_t<isa>::execute_forward(
         auto brg_kernel = brg_kernels_[brg_ker_idx].get();
         const int ic_blocks_per_batch = div_up(jbgp.K, jbgp.ic_block);
 
-        const dim_t wei_cur_ocb = blk_off(weights_d, cur_ocb, 0, kd, kh, kw);
+        const dim_t wei_cur_ocb = blk_off(weights_d, cur_ocb, 0, kd, kh, kw)
+                / types::data_type_size(weights_d.data_type()) * types::data_type_size(jbgp.wei_dt);
+        // weights_d & jbgp.wei_dt has different data size
+        // printf("kd %ld, kh %ld, kw %ld weights_d %ld true_size %ld wei_cur_ocb %ld\n", kd, kh, kw,
+        //     weights_d.data_type(), jbgp.wei_dt, wei_cur_ocb);
+        // const dim_t wei_cur_ocb
+        // = get_blk_off(weights_d, jbgp.wei_dt, cur_ocb, 0);
 
         if (copy_buffer_a) {
             assert(!jbgp.is_bf32);
