@@ -332,7 +332,10 @@ status_t brgemm_inner_product_fwd_t<isa>::execute_forward(
 
         if (copy_buffer_a) {
             assert(!jbgp.is_bf32);
-            auto src_ptr = src + blk_off(src_d, n, ic, kd, kh, kw);
+            auto src_ptr = src
+                    + blk_off(src_d, n, ic, kd, kh, kw)
+                            / types::data_type_size(src_d.data_type())
+                            * types::data_type_size(jbgp.src_dt);
             copy_data_chunk(copy_src_kernel_, a_buffer, src_ptr,
                     is_os_tail ? jbgp.mb - n : jbgp.os_block, is_last_ic_chunk);
         }
@@ -343,8 +346,11 @@ status_t brgemm_inner_product_fwd_t<isa>::execute_forward(
                 auto A_ptr = jbgp.use_buffer_a
                         ? (a_buffer + src_dt_size * b * jbgp.K)
                         : (src
-                                + blk_off(
-                                        src_d, n, ic + b * jbgp.K, kd, kh, kw));
+                                  + blk_off(src_d, n, ic + b * jbgp.K, kd, kh,
+                                            kw)
+                                          / types::data_type_size(
+                                                  src_d.data_type())
+                                          * types::data_type_size(jbgp.src_dt));
                 addr_batch[b].ptr.A = A_ptr;
                 const dim_t wei_offset = (wei_cur_ocb
                         + wei_ic_stride * (icb + b * ic_blocks_per_batch));
@@ -467,7 +473,9 @@ status_t brgemm_inner_product_fwd_t<isa>::execute_forward(
             int ic_block = gemm_batch * ic_blocks_per_batch;
             addr_batch[0].ptr.A = src
                     + blk_off(src_d, n, ic + ic_block * jbgp.ic_block, kd, kh,
-                            kw);
+                              kw)
+                            / types::data_type_size(src_d.data_type())
+                            * types::data_type_size(jbgp.src_dt);
             const dim_t wei_offset
                     = (wei_cur_ocb + wei_ic_stride * (icb + ic_block));
 
