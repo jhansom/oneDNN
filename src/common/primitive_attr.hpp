@@ -278,9 +278,9 @@ struct runtime_scales_t : public c_compatible {
                 && ndims_ == rhs.ndims_
                 && IMPLICATION(ndims_ > 0,
                         utils::array_cmp(group_dims_, rhs.group_dims_, ndims_))
-                && data_type_ == rhs.data_type_;
-        return mask_ == rhs.mask_ && is_set_ == rhs.is_set_ &&
-               ndims_ == rhs.ndims_ && utils::array_cmp(dims_, rhs.dims_, ndims_);
+                && data_type_ == rhs.data_type_
+                && IMPLICATION(ndims_ > 0,
+                        utils::array_cmp(dims_, rhs.dims_, ndims_));
     }
 
     bool has_default_values() const { return *this == default_runtime_scale(); }
