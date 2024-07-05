@@ -491,7 +491,7 @@ struct zero_points_t : public c_compatible {
 
     status_t set(int arg, int mask, int ndims, const dims_t group_dims,
             data_type_t data_type);
-
+    status_t set(int arg, const dims_t dims, int ndims, data_type_t data_type);
     status_t set(int arg, int mask) {
         return set(arg, mask, 0, nullptr, data_type::s32);
     }
