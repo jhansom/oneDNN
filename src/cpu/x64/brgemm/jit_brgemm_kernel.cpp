@@ -2282,6 +2282,9 @@ void jit_brgemm_kernel_t<isa, Wmm>::gemm_microkernel(int bd_block2,
             if (brg.with_wei_decomp_zero_points && brg.wei_decomp_zero_points_stride == 0) {
                 load_zero_points(vmm_zero_points, ptr[reg_local_wei_zp]);
             }
+            if (!brg.with_wei_decomp_zero_points) {
+                uni_vpxor(vmm_zero_points, vmm_zero_points, vmm_zero_points);
+            }
 
             for (int rd = 0; rd < rd_loop; rd += brg.rd_step) {
                 int prefetch_count_B = 0;
@@ -2344,6 +2347,9 @@ void jit_brgemm_kernel_t<isa, Wmm>::gemm_microkernel(int bd_block2,
                             load_zero_points(bcst(), ptr[reg_local_wei_zp + ld * brg.ld_block * types::data_type_size(brg.wei_decomp_zero_points_dt)]);
                             uni_vsubps(vmm_load, vmm_load, bcst());
                         }
+                    } else {
+                        // WA: for some reason, this redundant/useless subps can increase speed
+                        uni_vsubps(vmm_load, vmm_load, vmm_zero_points);
                     }
 
                     if (brg.with_wei_decomp_scales && brg.bd_block != 1) {
