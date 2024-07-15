@@ -38,6 +38,8 @@
 #if DNNL_USE_ACL
 // For checking if fp16 isa is supported on the platform
 #include "arm_compute/core/CPP/CPPTypes.h"
+// For setting the number of threads for ACL
+#include "src/common/cpuinfo/CpuInfo.h"
 #endif
 
 // For DNNL_X64 build we compute the timestamp using rdtsc. Use std::chrono for
@@ -151,7 +153,7 @@ bool has_training_support(data_type_t data_type) {
 #if defined(USE_CBLAS) && defined(BLAS_HAS_SBGEMM) && defined(__MMA__)
             return true;
 #endif
-#elif DNNL_AARCH64_USE_ACL
+#elif DNNL_USE_ACL
             return arm_compute::CPUInfo::get().has_bf16();
 #else
             return false;
