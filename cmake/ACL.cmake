@@ -34,8 +34,10 @@ find_package(ACL REQUIRED)
 set(ACL_MINIMUM_VERSION "24.04")
 
 if(ACL_FOUND)
-    file(GLOB_RECURSE ACL_VERSION_FILE ${ACL_INCLUDE_DIR}/*/arm_compute_version.embed)
-    if ("${ACL_VERSION_FILE}" STREQUAL "")
+    # arm_compute_version.embed does not exist by cmake compilation time (it is created while ACL is configured and built)
+    # so no sense to check this file. We can extract ACL version from SConscript file instead
+    set(ACL_VERSION_FILE $ENV{ACL_ROOT_DIR}/SConscript)
+    if (NOT EXISTS "${ACL_VERSION_FILE}")
         message(WARNING
             "Build may fail. Could not determine ACL version.\n"
             "Supported ACL versions:\n"
@@ -65,6 +67,7 @@ if(ACL_FOUND)
     include_directories(${ACL_INCLUDE_DIRS})
 
     message(STATUS "Arm Compute Library: ${ACL_LIBRARIES}")
+    message(STATUS "Arm Compute Library version: ${ACL_VERSION}")
     message(STATUS "Arm Compute Library headers: ${ACL_INCLUDE_DIRS}")
 
     add_definitions(-DDNNL_USE_ACL)
