@@ -13,6 +13,8 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 *******************************************************************************/
+// arm_compute::NEReorderLayer is available on aarch64 only
+#if DNNL_AARCH64 && DNNL_USE_ACL
 
 #include "cpu/acl/acl_reorder.hpp"
 
@@ -50,3 +52,5 @@ status_t acl_reorder_fwd_t::execute_forward(const exec_ctx_t &ctx) const {
 } // namespace cpu
 } // namespace impl
 } // namespace dnnl
+
+#endif

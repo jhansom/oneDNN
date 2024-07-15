@@ -13,6 +13,8 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 *******************************************************************************/
+#if DNNL_AARCH64 && DNNL_USE_ACL
+
 #ifndef CPU_ACL_REORDER_HPP
 #define CPU_ACL_REORDER_HPP
 
@@ -131,7 +133,7 @@ struct acl_reorder_fwd_t : public primitive_t {
             if (dst_tag == format_tag::BA4b4a || dst_tag == format_tag::Acdb4a
                     || dst_tag == format_tag::Ab4a) {
                 _pd->app_.dst_wf = arm_compute::WeightFormat::OHWIo4;
-            } else if (mayiuse(sve_256)
+            } else if (aarch64::mayiuse(aarch64::sve_256)
                     && (dst_tag == format_tag::BA8b4a
                             || dst_tag == format_tag::Acdb8a
                             || dst_tag == format_tag::Ab8a)) {
@@ -245,3 +247,5 @@ private:
 } // namespace dnnl
 
 #endif // CPU_ACL_REORDER_HPP
+
+#endif

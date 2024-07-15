@@ -38,8 +38,11 @@
 #include "cpu/aarch64/jit_uni_reorder.hpp"
 #endif
 
-#if DNNL_AARCH64 && DNNL_AARCH64_USE_ACL
-#include "cpu/aarch64/acl_reorder.hpp"
+//DNNL_AARCH64_USE_ACL is not defined, it needs to be replaced with DNNL_USE_ACL
+// Do we keep "old" file structure and namespaces on purpose?
+// acl_reorder.hpp is located in aarch64 dir and acl namespace is replaced with aarch64 as well
+#if DNNL_AARCH64 && DNNL_USE_ACL
+#include "cpu/acl/acl_reorder.hpp"
 #endif
 
 #include "cpu/rnn/rnn_reorders.hpp"
