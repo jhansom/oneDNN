@@ -80,6 +80,7 @@ struct acl_indirect_gemm_convolution_fwd_t : public primitive_t {
 
         status_t init(engine_t *engine) {
             using namespace data_type;
+            using smask_t = primitive_attr_t::skip_mask_t;
             const bool is_fp16_ok = expect_data_types(f16, f16, f16, f16, data_type::undef)
                     && attr()->has_default_values(
                             primitive_attr_t::skip_mask_t::post_ops, f16);
