@@ -49,6 +49,7 @@ struct jit_brgemm_kernel_t : public jit_generator {
                             - (one_of(brg.dt_b, data_type::nf4) && brg.isa_impl == avx2 ? 5 : 0)
                             - (one_of(brg.dt_b, data_type::nf4) && brg.isa_impl != avx2 ? 1 : 0)
                             - (brg.with_wei_decomp_zero_points && brg.wei_decomp_zero_points_stride == 0 ? 1 : 0)
+                            - (brg.with_wei_decomp_zero_points ? 0 : 1) // zero_points
                             - (brg.with_src_dyn_quant ? 2 : 0)
                             - (brg.with_src_dyn_quant && brg.with_wei_decomp_zero_points && brg.wei_decomp_zero_points_stride != 0 ? brg.ld_block2 : 0)) {
 
