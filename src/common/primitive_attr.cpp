@@ -172,16 +172,16 @@ bool primitive_attr_t::has_default_values(dnnl_primitive_attr::skip_mask_t mask,
             (bool)(~mask & (mask_name)), (mask_field).has_default_values()))
     CHECK_MASK(smask_t::oscale_runtime, output_scales_);
     CHECK_MASK(smask_t::scales, scales_);
-    // CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::scales_runtime_groups),
-    //         scales_.has_default_groups()));
-    // CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::scales_runtime_data_type),
-    //         scales_.has_default_data_type()));
-    // CHECK_MASK(smask_t::zero_points, zero_points_);
-    // CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::zero_points_runtime_groups),
-    //         zero_points_.has_default_groups()));
-    // CHECK_ARG(
-    //         IMPLICATION((bool)(~mask & smask_t::zero_points_runtime_data_type),
-    //                 zero_points_.has_default_data_type()));
+    CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::scales_runtime_groups),
+            scales_.has_default_groups()));
+    CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::scales_runtime_data_type),
+            scales_.has_default_data_type()));
+    CHECK_MASK(smask_t::zero_points, zero_points_);
+    CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::zero_points_runtime_groups),
+            zero_points_.has_default_groups()));
+    CHECK_ARG(
+            IMPLICATION((bool)(~mask & smask_t::zero_points_runtime_data_type),
+                    zero_points_.has_default_data_type()));
     CHECK_ARG(IMPLICATION((bool)(~mask & smask_t::zero_points),
             zero_points_.has_default_data_type()));
     CHECK_MASK(smask_t::input_zero_points, input_zero_points_);
