@@ -265,12 +265,22 @@ struct runtime_scales_t : public c_compatible {
         return status::success;
     }
 
+    status_t set(const dims_t dims, int ndims) {
+        is_set_ = true;
+        ndims_ = ndims;
+        mask_ = 1;
+        utils::array_copy(dims_, dims, ndims_);
+        return status::success;
+    }
+
     bool operator==(const runtime_scales_t &rhs) const {
         return mask_ == rhs.mask_ && is_set_ == rhs.is_set_
                 && ndims_ == rhs.ndims_
                 && IMPLICATION(ndims_ > 0,
                         utils::array_cmp(group_dims_, rhs.group_dims_, ndims_))
-                && data_type_ == rhs.data_type_;
+                && data_type_ == rhs.data_type_
+                && IMPLICATION(ndims_ > 0,
+                        utils::array_cmp(dims_, rhs.dims_, ndims_));
     }
 
     bool has_default_values() const { return *this == default_runtime_scale(); }
@@ -286,7 +296,9 @@ struct runtime_scales_t : public c_compatible {
     // Hide `mask_` under `private:` to force interface usage.
     int mask_ = 0;
     bool is_set_ = false;
+
     int ndims_ = 0;
+    dnnl::impl::dims_t dims_;
     dims_t group_dims_ = {};
     data_type_t data_type_ = data_type::f32;
 };
@@ -335,6 +347,10 @@ struct arg_scales_t : public c_compatible {
     status_t set(int arg, int mask) {
         if (!check_arg(arg)) return status::invalid_arguments;
         return scales_[arg].set(mask);
+    }
+    status_t set(int arg, const dims_t dims, int ndims) {
+        if (!check_arg(arg)) return status::invalid_arguments;
+        return scales_[arg].set(dims, ndims);
     }
 
     status_t set(int arg, int mask, int ndims, const dims_t group_dims,
@@ -422,6 +438,7 @@ struct zero_points_t : public c_compatible {
         return mask_src == rhs.mask_src && mask_wei == rhs.mask_wei
                 && mask_dst == rhs.mask_dst && is_set_src == rhs.is_set_src
                 && is_set_wei == rhs.is_set_wei && is_set_dst == rhs.is_set_dst
+                && IMPLICATION(ndims_wei > 0, ndims_wei == rhs.ndims_wei && utils::array_cmp(dims_wei, rhs.dims_wei, ndims_wei))
                 && data_type_wei == rhs.data_type_wei
                 && group_ndims_wei == rhs.group_ndims_wei
                 && IMPLICATION(group_ndims_wei > 0,
@@ -457,7 +474,6 @@ struct zero_points_t : public c_compatible {
     status_t get(int arg, int *mask, data_type_t *dt = nullptr) const;
 
     int get(int arg) const; // Returns 0 if dimension is unset
-
     data_type_t get_data_type(int arg) const {
         if (arg == DNNL_ARG_WEIGHTS) return data_type_wei;
         return data_type::s32;
@@ -475,12 +491,22 @@ struct zero_points_t : public c_compatible {
 
     status_t set(int arg, int mask, int ndims, const dims_t group_dims,
             data_type_t data_type);
-
+    status_t set(int arg, const dims_t dims, int ndims, data_type_t data_type);
     status_t set(int arg, int mask) {
         return set(arg, mask, 0, nullptr, data_type::s32);
     }
 
     status_t set(int arg) { return set(arg, 0); }
+
+    const dims_t & get_dims(int /*arg*/) const {
+        return dims_wei;
+    }
+    int get_ndims(int arg) const {
+        switch (arg) {
+            case DNNL_ARG_WEIGHTS: return ndims_wei; break;
+            default: return 0;
+        }
+    }
 
 private:
     bool is_set_src = false, is_set_wei = false, is_set_dst = false;
@@ -488,6 +514,9 @@ private:
     data_type_t data_type_wei = data_type::s32;
     int group_ndims_wei = 0;
     dims_t group_dims_wei {};
+
+    int ndims_wei = 0;
+    dnnl::impl::dims_t dims_wei;
 
     int get_mask(int arg) const {
         int mask = 0;
@@ -560,6 +589,32 @@ struct legacy_zero_points_t : public c_compatible {
 
     dim_t count_ = 0;
     int mask_ = 0;
+};
+
+struct src_dyn_quant_params_t : public c_compatible {
+    src_dyn_quant_params_t() : group_size_(0) {}
+    bool has_default_values() const {
+        return (group_size_ == 0);
+    }
+    bool defined() const {
+        return true;
+    }
+
+    status_t set(uint64_t group_size) {
+        group_size_ = group_size;
+        return status::success;
+    }
+
+    uint64_t get() {
+        return group_size_;
+    }
+
+    bool operator==(const src_dyn_quant_params_t &rhs) const {
+        using namespace utils;
+        return group_size_ == rhs.group_size_;
+    }
+
+    uint64_t group_size_;
 };
 
 } // namespace impl
@@ -955,6 +1010,7 @@ struct dnnl_primitive_attr : public dnnl::impl::c_compatible {
         input_zero_points_ = (other.input_zero_points_);
         weights_zero_points_ = (other.weights_zero_points_);
         output_compensations_ = (other.output_compensations_);
+        src_dyn_quant_params_ = other.src_dyn_quant_params_;
 
         return status::success;
     }
@@ -986,6 +1042,7 @@ struct dnnl_primitive_attr : public dnnl::impl::c_compatible {
         input_zero_points = 1 << 19,
         weights_zero_points = 1 << 20,
         output_compensations = 1 << 21,
+        src_dyn_quant_params = 1u << 22,
     };
 
     /** Returns true if the attributes have default values.
@@ -1014,7 +1071,8 @@ struct dnnl_primitive_attr : public dnnl::impl::c_compatible {
                         || (!gpu_attr_ && !rhs.gpu_attr_))
                 && input_zero_points_ == rhs.input_zero_points_
                 && weights_zero_points_ == rhs.weights_zero_points_
-                && output_compensations_ == rhs.output_compensations_;
+                && output_compensations_ == rhs.output_compensations_
+                && src_dyn_quant_params_ == rhs.src_dyn_quant_params_;
         return ret;
     }
 
@@ -1092,6 +1150,8 @@ struct dnnl_primitive_attr : public dnnl::impl::c_compatible {
     dnnl::impl::legacy_zero_points_t input_zero_points_;
     dnnl::impl::legacy_zero_points_t weights_zero_points_;
     dnnl::impl::legacy_zero_points_t output_compensations_;
+
+    dnnl::impl::src_dyn_quant_params_t src_dyn_quant_params_;
 
     dnnl_primitive_attr &operator=(const dnnl_primitive_attr &other) = delete;
 };
