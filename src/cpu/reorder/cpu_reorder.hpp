@@ -38,7 +38,7 @@
 #include "cpu/aarch64/jit_uni_reorder.hpp"
 #endif
 
-#if DNNL_AARCH64 && DNNL_AARCH64_USE_ACL
+#if DNNL_AARCH64 && DNNL_USE_ACL
 #include "cpu/aarch64/acl_reorder.hpp"
 #endif
 

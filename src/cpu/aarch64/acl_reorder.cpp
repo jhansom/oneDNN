@@ -14,7 +14,7 @@
 * limitations under the License.
 *******************************************************************************/
 
-#include "cpu/acl/acl_reorder.hpp"
+#include "cpu/aarch64/acl_reorder.hpp"
 
 namespace dnnl {
 namespace impl {

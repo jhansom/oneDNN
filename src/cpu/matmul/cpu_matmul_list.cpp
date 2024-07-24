@@ -39,6 +39,11 @@ using namespace dnnl::impl::cpu::x64;
 #ifdef DNNL_USE_ACL
 #include "cpu/acl/matmul/acl_lowp_matmul.hpp"
 #include "cpu/acl/matmul/acl_matmul.hpp"
+
+#if DNNL_AARCH64
+using namespace dnnl::impl::cpu::aarch64::matmul;
+using namespace dnnl::impl::cpu::aarch64;
+#endif
 using namespace dnnl::impl::cpu::acl::matmul;
 using namespace dnnl::impl::cpu::acl;
 #endif
