@@ -47,9 +47,12 @@ template <data_type_t src_type, data_type_t dst_type, data_type_t acc_type>
 status_t ref_pooling_fwd_t<src_type, dst_type, acc_type>::execute_forward(
         const exec_ctx_t &ctx) const {
 
+    status_t status = status::success;
     auto src = CTX_IN_MEM(const src_data_t *, DNNL_ARG_SRC);
-    auto dst = CTX_OUT_MEM(dst_data_t *, DNNL_ARG_DST);
-    auto ws = CTX_OUT_MEM(unsigned char *, DNNL_ARG_WORKSPACE);
+    auto dst = CTX_OUT_CLEAN_MEM(dst_data_t *, DNNL_ARG_DST, status);
+    CHECK(status);
+    auto ws = CTX_OUT_CLEAN_MEM(unsigned char *, DNNL_ARG_WORKSPACE, status);
+    CHECK(status);
 
     const memory_desc_wrapper src_d(pd()->src_md());
     const memory_desc_wrapper dst_d(pd()->dst_md());
