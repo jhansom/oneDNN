@@ -802,6 +802,7 @@ dnnl_status_t DNNL_API dnnl_post_ops_append_binarization(
 /// @returns #dnnl_success on success and a status describing the error
 ///     otherwise.
 dnnl_status_t DNNL_API dnnl_memory_desc_destroy(dnnl_memory_desc_t memory_desc);
+dnnl_status_t DNNL_API dnnl_memory_desc_destroy2(dnnl_memory_desc_t memory_desc);
 
 /// Clones a memory descriptor. The resulting memory descriptor must be
 /// destroyed separately.
@@ -812,6 +813,8 @@ dnnl_status_t DNNL_API dnnl_memory_desc_destroy(dnnl_memory_desc_t memory_desc);
 ///     otherwise.
 dnnl_status_t DNNL_API dnnl_memory_desc_clone(dnnl_memory_desc_t *memory_desc,
         const_dnnl_memory_desc_t existing_memory_desc);
+
+dnnl_status_t DNNL_API dnnl_memory_desc_clone2(dnnl_memory_desc_t *memory_desc);
 
 /// Retrieves a binary blob associated with the given memory descriptor
 ///

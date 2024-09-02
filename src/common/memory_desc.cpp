@@ -798,6 +798,25 @@ status_t dnnl_memory_desc_clone(memory_desc_t **memory_desc,
     return success;
 }
 
+status_t dnnl_memory_desc_clone2(memory_desc_t **memory_desc) {
+    // (*memory_desc) = (memory_desc_t *)(dnnl::impl::malloc(sizeof(memory_desc_t), 64));
+#if 1
+    int rc = ::posix_memalign((void**)(memory_desc), 64, sizeof(memory_desc_t));
+#else
+    *memory_desc = (memory_desc_t *)::malloc(sizeof(memory_desc_t));
+#endif
+    void* p = (void*)(*memory_desc);
+    memset(p , 0, sizeof(memory_desc_t));
+    return success;
+}
+
+status_t dnnl_memory_desc_destroy2(memory_desc_t *memory_desc) {
+    // dnnl::impl::free(memory_desc);
+    // ::free(memory_desc);
+    ::free(memory_desc);
+    return success;
+}
+
 status_t dnnl_memory_desc_get_blob(
         uint8_t *blob, size_t *size, const memory_desc_t *md) {
     if (md == nullptr || (blob == nullptr && size == nullptr))

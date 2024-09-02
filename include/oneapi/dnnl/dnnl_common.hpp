@@ -231,6 +231,7 @@ struct handle_traits<dnnl_engine_t> {
         return dnnl_engine_destroy(p);
     }
 };
+
 /// @endcond
 
 /// An execution engine.

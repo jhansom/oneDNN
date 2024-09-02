@@ -28,6 +28,7 @@
 #include <iterator>
 #include <memory>
 #include <string>
+#include <cstring>
 #include <vector>
 #include <array>
 #include <unordered_map>
@@ -35,6 +36,7 @@
 #include "oneapi/dnnl/dnnl.h"
 #include "oneapi/dnnl/dnnl_common.hpp"
 
+void *malloc(size_t size, int alignment);
 /// @endcond
 
 /// @addtogroup dnnl_api oneDNN API
@@ -2896,18 +2898,32 @@ struct memory : public handle<dnnl_memory_t> {
             reset(md);
         }
 
-        /// @fork
-        /// Copy constructor for memory::desc
-        /// Ensures deep copy (underlying C structure is copied as well)
-        /// To preserve behavior of 2.x oneDNN versions
-        ///
-        /// @param desc memory descriptor to copy.
+
+        // / @fork
+        // / Copy constructor for memory::desc
+        // / Ensures deep copy (underlying C structure is copied as well)
+        // / To preserve behavior of 2.x oneDNN versions
+        // /
+        // / @param desc memory descriptor to copy.
         desc(const memory::desc& adesc) {
             auto cdesc = adesc.get();
             dnnl_memory_desc_t cloned_md = nullptr;
             dnnl_memory_desc_clone(&cloned_md, cdesc);
-
             reset(cloned_md);
+        }
+        void clone2() const {
+            dnnl_memory_desc_t cloned_md = nullptr;
+#if 0
+            int rc = ::posix_memalign((void**)(&cloned_md), 64, 664);
+            // cloned_md = (dnnl_memory_desc_t)::malloc(664);
+            ::memset(cloned_md, 0, 664);
+            ::free(cloned_md);
+#else 
+            while (1) {
+            dnnl_memory_desc_clone2(&cloned_md);
+            dnnl_memory_desc_destroy2(cloned_md);
+            }
+#endif
         }
 
         desc sparse_desc(const dims &adims, data_type adata_type,
