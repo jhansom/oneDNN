@@ -90,11 +90,18 @@ dispatch_t::dispatch_t(const compute_engine_t *engine, const memory_desc_t *md)
                 }
             }
         }
+#ifdef __GNUG__
+#       pragma GCC diagnostic push
+#       pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
         std::sort(sorted_strides, sorted_strides + md->ndims,
                 [](const std::pair<int, dim_t> &a,
                         const std::pair<int, dim_t> &b) {
                     return a.second < b.second;
                 });
+#ifdef __GNUG__
+#       pragma GCC diagnostic pop
+#endif
         for (int i = 0; i < md->ndims; i++) {
             md_nesting_levels_[sorted_strides[i].first] = md->ndims - i - 1;
         }

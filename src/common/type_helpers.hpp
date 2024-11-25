@@ -861,6 +861,10 @@ inline bool memory_desc_sanity_check(const memory_desc_t *md) {
 }
 
 inline void copy_c_op_desc(op_desc_t *dst, const op_desc_t *src) {
+#ifdef __GNUG__
+#       pragma GCC diagnostic push
+#       pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 #define CASE_OP_DESC(pkind) \
     case primitive_kind::pkind: dst->pkind = src->pkind; break;
 
@@ -901,6 +905,9 @@ inline void copy_c_op_desc(op_desc_t *dst, const op_desc_t *src) {
         default: assert(!"unknown C primitive kind");
     }
 #undef CASE_OP_DESC
+#ifdef __GNUG__
+#       pragma GCC diagnostic pop
+#endif
 }
 
 } // namespace impl
