@@ -579,10 +579,17 @@ public:
 	// any bit is accetable if bit == 0
 	XBYAK_CONSTEXPR bool is(int kind, uint32_t bit = 0) const
 	{
+#ifdef __GNUG__
+#       pragma GCC diagnostic push
+#       pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 		return (kind == 0 || (kind_ & kind)) && (bit == 0 || (bit_ & bit)); // cf. you can set (8|16)
 	}
 	XBYAK_CONSTEXPR bool isBit(uint32_t bit) const { return (bit_ & bit) != 0; }
 	XBYAK_CONSTEXPR uint32_t getBit() const { return bit_; }
+#ifdef __GNUG__
+#       pragma GCC diagnostic pop
+#endif
 	const char *toString() const
 	{
 		const int idx = getIdx();
@@ -894,7 +901,14 @@ public:
 	bool isVsib(int bit = 128 | 256 | 512) const { return index_.isBit(bit); }
 	RegExp optimize() const
 	{
+#ifdef __GNUG__
+#       pragma GCC diagnostic push
+#       pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 		RegExp exp = *this;
+#ifdef __GNUG__
+#       pragma GCC diagnostic pop
+#endif
 		// [reg * 2] => [reg + reg]
 		if (index_.isBit(i32e) && !base_.getBit() && scale_ == 2) {
 			exp.base_ = index_;
@@ -904,7 +918,14 @@ public:
 	}
 	bool operator==(const RegExp& rhs) const
 	{
+#ifdef __GNUG__
+#       pragma GCC diagnostic push
+#       pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 		return base_ == rhs.base_ && index_ == rhs.index_ && disp_ == rhs.disp_ && scale_ == rhs.scale_;
+#ifdef __GNUG__
+#       pragma GCC diagnostic pop
+#endif
 	}
 	const Reg& getBase() const { return base_; }
 	const Reg& getIndex() const { return index_; }
@@ -1250,12 +1271,26 @@ public:
 		if (mode_ != M_ModRM) return 0;
 		return getRegExp().getRex();
 	}
+#ifdef __GNUG__
+#       pragma GCC diagnostic push
+#       pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 	bool is64bitDisp() const { return mode_ == M_64bitDisp; } // for moffset
+#ifdef __GNUG__
+#       pragma GCC diagnostic pop
+#endif
 	bool isBroadcast() const { return broadcast_; }
 	const Label* getLabel() const { return label_; }
 	bool operator==(const Address& rhs) const
 	{
+#ifdef __GNUG__
+#       pragma GCC diagnostic push
+#       pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 		return getBit() == rhs.getBit() && e_ == rhs.e_ && label_ == rhs.label_ && mode_ == rhs.mode_ && broadcast_ == rhs.broadcast_;
+#ifdef __GNUG__
+#       pragma GCC diagnostic pop
+#endif
 	}
 	bool operator!=(const Address& rhs) const { return !operator==(rhs); }
 	bool isVsib() const { return e_.isVsib(); }

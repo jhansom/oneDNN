@@ -198,8 +198,16 @@ constexpr bool any_null(Args... ptrs) {
 
 template <typename T>
 inline void array_copy(T *dst, const T *src, size_t size) {
+#ifdef __GNUG__
+#       pragma GCC diagnostic push
+#       pragma GCC diagnostic ignored "-Wstringop-overflow"
+#       pragma GCC diagnostic ignored "-Wrestrict"
+#endif
     for (size_t i = 0; i < size; ++i)
         dst[i] = src[i];
+#ifdef __GNUG__
+#       pragma GCC diagnostic pop
+#endif
 }
 template <typename T>
 inline bool array_cmp(const T *a1, const T *a2, size_t size) {
@@ -209,8 +217,15 @@ inline bool array_cmp(const T *a1, const T *a2, size_t size) {
 }
 template <typename T, typename U>
 inline void array_set(T *arr, const U &val, size_t size) {
+#ifdef __GNUG__
+#       pragma GCC diagnostic push
+#       pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
     for (size_t i = 0; i < size; ++i)
         arr[i] = static_cast<T>(val);
+#ifdef __GNUG__
+#       pragma GCC diagnostic pop
+#endif
 }
 
 inline bool array_cmp_weak(const dnnl_dim_t *a1, const dnnl_dim_t *a2, size_t size) {

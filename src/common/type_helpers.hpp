@@ -667,8 +667,15 @@ inline status_t memory_desc_init_by_tag(
             &md, md.ndims, md.dims, md.data_type, tag);
     if (status != status::success || strides == nullptr) return status;
 
+#ifdef __GNUG__
+#       pragma GCC diagnostic push
+#       pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
     if (!memory_desc_strides_check(md, strides))
         return status::invalid_arguments;
+#ifdef __GNUG__
+#       pragma GCC diagnostic pop
+#endif
 
     for (int d = 0; d < md.ndims; ++d)
         md.format_desc.blocking.strides[d] = strides[d];
